@@ -60,12 +60,18 @@ async function runSEO(url, html) {
 // Security headers
 async function runSecurity(url) {
   try {
-    const headers = await getSecurityHeaders(url);
-    return headers;
-  } catch {
+    const res = await axios.head(url, { timeout: 10000 });
+    return {
+      'content-security-policy': res.headers['content-security-policy'] || null,
+      'x-frame-options': res.headers['x-frame-options'] || null,
+      'strict-transport-security': res.headers['strict-transport-security'] || null,
+      'x-content-type-options': res.headers['x-content-type-options'] || null
+    };
+  } catch (err) {
     return { error: "Failed to fetch security headers" };
   }
 }
+
 
 // PageSpeed Insights API
 async function runPSI(url) {
