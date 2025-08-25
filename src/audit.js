@@ -8,7 +8,7 @@ import metascraperUrl from "metascraper-url";
 import fetch from "node-fetch";
 import { pagespeedonline } from "@googleapis/pagespeedonline";
 
-// Fetch HTML
+// Fetch HTML of the page
 export async function fetchHTML(url) {
   const res = await axios.get(url, { timeout: 60000 });
   return res.data;
@@ -62,19 +62,11 @@ export async function runPSI(url) {
     const res = await client.pagespeedapi.runpagespeed({
       url,
       strategy: "mobile",
-      fetch: fetch, // explicitly provide node-fetch
+      fetch: fetch, // explicit node-fetch
     });
 
     const lhr = res.data.lighthouseResult;
     return {
       performance: lhr.categories.performance.score * 100,
       accessibility: lhr.categories.accessibility.score * 100,
-      seo: lhr.categories.seo.score * 100,
-      bestPractices: lhr.categories["best-practices"].score * 100,
-      pwa: lhr.categories.pwa.score * 100,
-    };
-  } catch (err) {
-    console.error("PSI failed for", url, err.toString());
-    return { error: "PSI failed" };
-  }
-}
+      seo: lhr.c
