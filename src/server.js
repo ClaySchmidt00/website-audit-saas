@@ -1,23 +1,50 @@
 import express from "express";
-import bodyParser from "body-parser";
-import { crawlPages } from "./audit.js";
+import path from "path";
+import { fileURLToPath } from "url";
+import { fetchHTML, runAxe, runSEO, runPSI } from "./audit.js";
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-app.use(bodyParser.json());
-app.use(express.static("public"));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-app.post("/audit", async (req, res) => {
-  const { url } = req.body;
-  if (!url) return res.status(400).json({ error: "Missing URL" });
+app.use(express.static(path.join(__dirname, "../public")));
+app.use(express.json());
+
+// SSE audit stream
+app.get("/audit-stream", async (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).end();
+
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+
+  const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
   try {
-    const pages = await crawlPages(url, 3); // limit 3 pages for free tier
-    res.json({ site: url, pages });
+    const html = await fetchHTML(url);
+
+    // Accessibility
+    const accessibility = await runAxe(html, url);
+    send({ status: "accessibility", data: accessibility });
+
+    // SEO
+    const seo = await runSEO(url, html);
+    send({ status: "seo", data: seo });
+
+    // PSI
+    const psi = await runPSI(url);
+    send({ status: "psi", data: psi });
+
+    send({ status: "done" });
+    res.end();
   } catch (err) {
-    console.error("Audit failed:", err);
-    res.status(500).json({ error: "Audit failed", details: err.toString() });
+    send({ status: "error", error: err.toString() });
+    res.end();
   }
 });
 
