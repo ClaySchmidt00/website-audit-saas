@@ -13,7 +13,11 @@
     "openai": "^4.56.0",
     "axe-core": "^4.7.1",
     "jsdom": "^22.1.0",
-    "html-metadata-parser": "^1.3.0",
+      "metascraper": "^5.15.0",
+      "metascraper-title": "^5.15.0",
+      "metascraper-description": "^5.15.0",
+      "metascraper-url": "^5.15.0",
+      "metascraper-author": "^5.15.0"
     "node-fetch": "^3.3.2",
     "securityheaders": "^1.1.3",
     "pdfkit": "^0.13.0",
