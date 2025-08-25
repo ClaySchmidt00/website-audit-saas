@@ -13,7 +13,7 @@ app.post("/audit", async (req, res) => {
   if (!url) return res.status(400).json({ error: "Missing URL" });
 
   try {
-    const pages = await crawlPages(url, 3); // Crawl up to 3 pages for free-tier safety
+    const pages = await crawlPages(url, 3); // limit 3 pages for free tier
     res.json({ site: url, pages });
   } catch (err) {
     console.error("Audit failed:", err);
