@@ -6,6 +6,9 @@ import { JSDOM } from "jsdom";
 import axeCore from "axe-core";
 import metadataParser from "html-metadata-parser";
 import { getSecurityHeaders } from "securityheaders";
+import PDFDocument from "pdfkit";
+import { writeFileSync } from "fs";
+import URL from "url-parse";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,13 +18,13 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 app.use(bodyParser.json());
 app.use(express.static("public"));
 
-// Helper: fetch HTML
+// Fetch HTML
 async function fetchHTML(url) {
-  const response = await axios.get(url, { timeout: 60000 });
-  return response.data;
+  const res = await axios.get(url, { timeout: 60000 });
+  return res.data;
 }
 
-// Accessibility audit using axe-core + jsdom
+// Axe-core accessibility
 async function runAxe(html, url) {
   const dom = new JSDOM(html, { url });
   const { window } = dom;
@@ -31,18 +34,22 @@ async function runAxe(html, url) {
   return results;
 }
 
-// SEO basic audit
-async function runSEO(html, url) {
-  const metadata = await metadataParser(url);
-  return {
-    title: metadata.general.title,
-    description: metadata.general.description,
-    canonical: metadata.general.canonical,
-    robots: metadata.general.robots
-  };
+// SEO metadata
+async function runSEO(url) {
+  try {
+    const metadata = await metadataParser(url);
+    return {
+      title: metadata.general.title,
+      description: metadata.general.description,
+      canonical: metadata.general.canonical,
+      robots: metadata.general.robots
+    };
+  } catch {
+    return { error: "Failed to parse SEO metadata" };
+  }
 }
 
-// Security audit
+// Security headers
 async function runSecurity(url) {
   try {
     const headers = await getSecurityHeaders(url);
@@ -52,9 +59,9 @@ async function runSecurity(url) {
   }
 }
 
-// Performance audit using PageSpeed Insights API
+// PageSpeed Insights API
 async function runPSI(url) {
-  const apiKey = process.env.PSI_API_KEY || ""; // optional
+  const apiKey = process.env.PSI_API_KEY || "";
   const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(
     url
   )}&strategy=mobile${apiKey ? `&key=${apiKey}` : ""}`;
@@ -62,41 +69,104 @@ async function runPSI(url) {
   return res.data;
 }
 
-// Main audit endpoint
+// Crawl internal pages
+async function crawlPages(rootUrl, maxPages = 10) {
+  const visited = new Set();
+  const queue = [rootUrl];
+  const results = [];
+
+  while (queue.length && visited.size < maxPages) {
+    const url = queue.shift();
+    if (visited.has(url)) continue;
+    visited.add(url);
+
+    try {
+      const html = await fetchHTML(url);
+      const [accessibility, seo, security, performance] = await Promise.all([
+        runAxe(html, url),
+        runSEO(url),
+        runSecurity(url),
+        runPSI(url)
+      ]);
+
+      results.push({ url, accessibility, seo, security, performance });
+
+      // Find internal links
+      const dom = new JSDOM(html, { url });
+      const anchors = [...dom.window.document.querySelectorAll("a[href]")];
+      anchors.forEach(a => {
+        const link = new URL(a.href, url);
+        if (link.hostname === new URL(rootUrl).hostname && !visited.has(link.href)) {
+          queue.push(link.href);
+        }
+      });
+
+    } catch (err) {
+      console.error(`❌ Error crawling ${url}:`, err.toString());
+    }
+  }
+
+  return results;
+}
+
+// Generate PDF report
+function generatePDF(auditData, gptSummary, outputPath = "audit_report.pdf") {
+  const doc = new PDFDocument();
+  doc.pipe(writeFileSync(outputPath, ""));
+  doc.text("Complete Website Audit Report", { align: "center", underline: true });
+  doc.moveDown();
+  doc.text("GPT Executive Summary:", { bold: true });
+  doc.text(gptSummary);
+  doc.moveDown();
+
+  auditData.forEach(page => {
+    doc.addPage();
+    doc.text(`Page: ${page.url}`, { underline: true });
+    doc.text("SEO:", { bold: true });
+    doc.text(JSON.stringify(page.seo, null, 2));
+    doc.moveDown();
+    doc.text("Accessibility Issues:", { bold: true });
+    doc.text(JSON.stringify(page.accessibility, null, 2));
+    doc.moveDown();
+    doc.text("Security Headers:", { bold: true });
+    doc.text(JSON.stringify(page.security, null, 2));
+    doc.moveDown();
+    doc.text("Performance:", { bold: true });
+    doc.text(JSON.stringify(page.performance, null, 2));
+  });
+
+  doc.end();
+}
+
+// Audit endpoint
 app.post("/audit", async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: "Missing URL" });
 
   try {
-    // Fetch site HTML
-    const html = await fetchHTML(url);
+    const pages = await crawlPages(url, 10); // max 10 pages
+    const fullReport = { site: url, pages };
 
-    // Run audits
-    const [accessibility, seo, security, performance] = await Promise.all([
-      runAxe(html, url),
-      runSEO(html, url),
-      runSecurity(url),
-      runPSI(url)
-    ]);
-
-    const fullReport = { url, performance, accessibility, seo, security };
-
-    // GPT summarization
-    const gptSummary = await openai.chat.completions.create({
+    const gptSummaryResp = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content: "You are a web auditing expert. Summarize all metrics clearly with actionable recommendations."
+          content: "You are a web auditing expert. Provide clear actionable insights from this report."
         },
-        { role: "user", content: `Full audit report for ${url}:\n${JSON.stringify(fullReport, null, 2)}` }
+        { role: "user", content: JSON.stringify(fullReport, null, 2) }
       ]
     });
 
-    res.json({ summary: gptSummary.choices[0].message.content, report: fullReport });
+    const gptSummary = gptSummaryResp.choices[0].message.content;
+
+    generatePDF(pages, gptSummary, "public/audit_report.pdf");
+
+    res.json({ summary: gptSummary, report: fullReport, pdf: "/audit_report.pdf" });
+
   } catch (err) {
-    console.error("❌ Audit failed:", err);
-    res.status(500).json({ error: "Audit failed", details: err.toString() });
+    console.error("❌ Full audit failed:", err);
+    res.status(500).json({ error: "Full audit failed", details: err.toString() });
   }
 });
 
