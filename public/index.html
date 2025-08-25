@@ -2,17 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Website Audit SaaS</title>
-  <link rel="stylesheet" href="styles.css">
+  <title>Website Audit Dashboard</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
-    <h1>Website Audit SaaS</h1>
-    <input type="text" id="url" placeholder="Enter website URL" />
-    <button onclick="runAudit()">Run Audit</button>
-    <p id="progress"></p>
-    <div id="dashboard"></div>
-  </div>
+  <h1>Website Audit</h1>
+  <input id="url" type="text" placeholder="Enter website URL">
+  <button onclick="runAudit()">Run Audit</button>
+  <p id="progress"></p>
+  <div id="dashboard"></div>
+
   <script src="dashboard.js"></script>
 </body>
 </html>
