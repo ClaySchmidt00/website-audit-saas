@@ -1,13 +1,7 @@
-* { box-sizing: border-box; }
-body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; padding: 0; background: #0b1020; color: #e6e8ea; }
-main { max-width: 900px; margin: 40px auto; padding: 0 16px; }
-h1 { margin-bottom: 16px; }
-form { display: flex; gap: 8px; margin-bottom: 16px; }
-input { flex: 1; padding: 10px 12px; border: 1px solid #2a334a; border-radius: 8px; background: #151b2f; color: #e6e8ea; }
-button { padding: 10px 14px; border: 0; border-radius: 8px; background: #5b7cfa; color: white; cursor: pointer; }
-button:hover { filter: brightness(1.1); }
-.card { background: #11162a; border: 1px solid #243053; padding: 16px; border-radius: 12px; margin: 16px 0; }
-.hidden { display: none; }
-table { width: 100%; border-collapse: collapse; }
-th, td { padding: 8px; border-bottom: 1px solid #243053; text-align: left; font-size: 14px; }
-.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #243053; font-size: 12px; }
+body { font-family: Arial; max-width: 900px; margin: auto; padding: 2rem; }
+input, button { padding: 0.5rem; font-size: 1rem; margin-top: 1rem; width: 100%; }
+.card { border: 1px solid #ddd; padding: 1rem; margin: 1rem 0; border-radius: 5px; }
+h2 { margin: 0; }
+.issue-high { color: red; font-weight: bold; }
+.issue-medium { color: orange; }
+.issue-low { color: green; }
