@@ -5,27 +5,34 @@ import metascraper from "metascraper";
 import metascraperTitle from "metascraper-title";
 import metascraperDescription from "metascraper-description";
 import metascraperUrl from "metascraper-url";
+import fetch from "node-fetch";
 import { pagespeedonline } from "@googleapis/pagespeedonline";
 
-// Fetch HTML
+// ---------- Fetch HTML ----------
 export async function fetchHTML(url) {
   const res = await axios.get(url, { timeout: 60000 });
   return res.data;
 }
 
-// Accessibility using axe-core
+// ---------- Accessibility using axe-core ----------
 export async function runAxe(html, url) {
   const dom = new JSDOM(html, { url });
+
+  // Set globals for axe-core
   global.window = dom.window;
   global.document = dom.window.document;
   global.Node = dom.window.Node;
   global.Element = dom.window.Element;
   global.HTMLElement = dom.window.HTMLElement;
 
-  const results = await new Promise((resolve) => {
-    axeCore.run(dom.window.document, {}, (err, results) => resolve(results));
+  const results = await new Promise((resolve, reject) => {
+    axeCore.run(dom.window.document, {}, (err, results) => {
+      if (err) reject(err);
+      else resolve(results);
+    });
   });
 
+  // Clean up globals
   delete global.window;
   delete global.document;
   delete global.Node;
@@ -35,7 +42,7 @@ export async function runAxe(html, url) {
   return results;
 }
 
-// SEO metadata
+// ---------- SEO metadata ----------
 export async function runSEO(url, html) {
   try {
     const scraper = metascraper([
@@ -49,12 +56,19 @@ export async function runSEO(url, html) {
   }
 }
 
-// PageSpeed Insights
+// ---------- PageSpeed Insights ----------
 export async function runPSI(url) {
   try {
-    const client = pagespeedonline({ version: "v5" });
-    const res = await client.pagespeedapi.runpagespeed({ url });
+    const client = pagespeedonline({ version: "v5", auth: process.env.GOOGLE_API_KEY });
+
+    const res = await client.pagespeedapi.runpagespeed({
+      url,
+      strategy: "mobile",
+      fetch: fetch, // explicitly provide node-fetch
+    });
+
     const lhr = res.data.lighthouseResult;
+
     return {
       performance: lhr.categories.performance.score * 100,
       accessibility: lhr.categories.accessibility.score * 100,
@@ -68,7 +82,7 @@ export async function runPSI(url) {
   }
 }
 
-// Crawl pages sequentially
+// ---------- Crawl pages sequentially ----------
 export async function crawlPages(rootUrl, maxPages = 3) {
   const visited = new Set();
   const queue = [rootUrl];
@@ -81,6 +95,7 @@ export async function crawlPages(rootUrl, maxPages = 3) {
 
     try {
       const html = await fetchHTML(url);
+
       const [accessibility, seo, psi] = await Promise.all([
         runAxe(html, url),
         runSEO(url, html),
@@ -89,13 +104,16 @@ export async function crawlPages(rootUrl, maxPages = 3) {
 
       results.push({ url, accessibility, seo, psi });
 
+      // Find internal links
       const dom = new JSDOM(html, { url });
       const anchors = [...dom.window.document.querySelectorAll("a[href]")];
       anchors.forEach((a) => {
-        const link = new URL(a.href, url);
-        if (link.hostname === new URL(rootUrl).hostname && !visited.has(link.href)) {
-          queue.push(link.href);
-        }
+        try {
+          const link = new URL(a.href, url);
+          if (link.hostname === new URL(rootUrl).hostname && !visited.has(link.href)) {
+            queue.push(link.href);
+          }
+        } catch {}
       });
     } catch (err) {
       console.error(`Error processing ${url}:`, err.toString());
