@@ -28,15 +28,12 @@ app.get("/audit-stream", async (req, res) => {
   try {
     const html = await fetchHTML(url);
 
-    // Accessibility
     const accessibility = await runAxe(html, url);
     send({ status: "accessibility", data: accessibility });
 
-    // SEO
     const seo = await runSEO(url, html);
     send({ status: "seo", data: seo });
 
-    // PSI
     const psi = await runPSI(url);
     send({ status: "psi", data: psi });
 
