@@ -1,27 +1,37 @@
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Website Audit SaaS</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <main>
-      <h1>Website Audit SaaS (Demo)</h1>
-      <form id="audit-form">
-        <input id="site-url" type="url" placeholder="https://example.com" required />
-        <button type="submit">Run Audit</button>
-      </form>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Website Audit SaaS</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: auto; padding: 2rem; }
+    input, button { padding: 0.5rem; font-size: 1rem; margin-top: 1rem; }
+    #result { margin-top: 2rem; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Website Audit</h1>
+  <p>Enter a website URL to audit accessibility and performance:</p>
+  <input id="url" type="text" placeholder="https://example.com" style="width:100%" />
+  <button onclick="runAudit()">Run Audit</button>
+  <div id="result"></div>
 
-      <section id="status"></section>
-      <section id="summary" class="card hidden"></section>
-      <section id="gpt" class="card hidden"></section>
-      <section id="pages" class="card hidden"></section>
-
-      <div id="actions" class="hidden">
-        <button id="download-pdf">Download PDF</button>
-      </div>
-    </main>
-    <script src="app.js"></script>
-  </body>
+  <script>
+    async function runAudit() {
+      const url = document.getElementById("url").value;
+      document.getElementById("result").innerText = "⏳ Running audit...";
+      const res = await fetch("/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url })
+      });
+      const data = await res.json();
+      if (data.error) {
+        document.getElementById("result").innerText = "❌ Error: " + data.error;
+      } else {
+        document.getElementById("result").innerText = "✅ Audit Summary:\n\n" + data.summary;
+      }
+    }
+  </script>
+</body>
 </html>
