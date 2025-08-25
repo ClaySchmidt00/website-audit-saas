@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Complete Web Audit SaaS</title>
+<title>Complete Website Audit</title>
 <style>
 body { font-family: Arial, sans-serif; max-width: 900px; margin: auto; padding: 2rem; }
 input, button { padding: 0.5rem; font-size: 1rem; margin-top: 1rem; width: 100%; }
@@ -10,16 +10,18 @@ input, button { padding: 0.5rem; font-size: 1rem; margin-top: 1rem; width: 100%;
 </style>
 </head>
 <body>
-<h1>Complete Website Audit</h1>
-<p>Enter a website URL for full audit (Performance, Accessibility, SEO, Security):</p>
+<h1>Complete Website Audit (Multi-Page + PDF)</h1>
+<p>Enter the root URL to audit the website:</p>
 <input id="url" type="text" placeholder="https://example.com" />
-<button onclick="runAudit()">Run Audit</button>
+<button onclick="runAudit()">Run Full Audit</button>
 <div id="result"></div>
+<div id="download" style="margin-top:1rem;"></div>
 
 <script>
 async function runAudit() {
   const url = document.getElementById("url").value;
-  document.getElementById("result").innerText = "⏳ Running full audit... This may take 30–60 seconds.";
+  document.getElementById("result").innerText = "⏳ Running full multi-page audit...";
+  document.getElementById("download").innerHTML = "";
   try {
     const res = await fetch("/audit", {
       method: "POST",
@@ -27,8 +29,12 @@ async function runAudit() {
       body: JSON.stringify({ url })
     });
     const data = await res.json();
-    if (data.error) document.getElementById("result").innerText = "❌ Error: " + data.error;
-    else document.getElementById("result").innerText = "✅ GPT Summary:\n\n" + data.summary;
+    if (data.error) {
+      document.getElementById("result").innerText = "❌ Error: " + data.error;
+    } else {
+      document.getElementById("result").innerText = "✅ GPT Summary:\n\n" + data.summary;
+      document.getElementById("download").innerHTML = `<a href="${data.pdf}" target="_blank">📄 Download PDF Report</a>`;
+    }
   } catch (err) {
     document.getElementById("result").innerText = "❌ Fetch failed: " + err;
   }
