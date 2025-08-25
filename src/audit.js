@@ -8,13 +8,13 @@ import metascraperUrl from "metascraper-url";
 import fetch from "node-fetch";
 import { pagespeedonline } from "@googleapis/pagespeedonline";
 
-// Fetch HTML of the page
+// Fetch HTML
 export async function fetchHTML(url) {
   const res = await axios.get(url, { timeout: 60000 });
   return res.data;
 }
 
-// Accessibility audit
+// Accessibility audit using JSDOM
 export async function runAxe(html, url) {
   const dom = new JSDOM(html, { url });
 
@@ -62,7 +62,7 @@ export async function runPSI(url) {
     const res = await client.pagespeedapi.runpagespeed({
       url,
       strategy: "mobile",
-      fetch: fetch, // explicit node-fetch
+      fetch: fetch,
     });
 
     const lhr = res.data.lighthouseResult;
