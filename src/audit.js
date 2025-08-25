@@ -74,4 +74,7 @@ export async function runPSI(url) {
       pwa: lhr.categories.pwa.score * 100,
     };
   } catch (err) {
-    console.error("PSI failed for"
+    console.error("PSI failed for", url, err.toString());
+    return { error: "PSI failed" };
+  }
+}
