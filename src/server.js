@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 app.use(express.static(path.join(__dirname, "../public")));
 app.use(express.json());
 
-// SSE stream for live updates
+// SSE stream for live audit
 app.get("/audit-stream", async (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).end();
