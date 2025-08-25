@@ -1,17 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Website Audit Dashboard</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Website Audit Tool</title>
 </head>
 <body>
-  <h1>Website Audit</h1>
-  <input id="url" type="text" placeholder="Enter website URL">
-  <button onclick="runAudit()">Run Audit</button>
-  <p id="progress"></p>
-  <div id="dashboard"></div>
+  <h1>Website Audit Tool</h1>
+  <form id="auditForm">
+    <input type="url" id="urlInput" placeholder="Enter a website URL" required />
+    <button type="submit">Run Audit</button>
+  </form>
 
-  <script src="dashboard.js"></script>
+  <pre id="results"></pre>
+
+  <script src="script.js"></script>
 </body>
 </html>
