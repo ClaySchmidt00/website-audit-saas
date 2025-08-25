@@ -4,11 +4,15 @@ import axios from "axios";
 import OpenAI from "openai";
 import { JSDOM } from "jsdom";
 import axeCore from "axe-core";
-import metadataParser from "html-metadata-parser";
 import { getSecurityHeaders } from "securityheaders";
 import PDFDocument from "pdfkit";
 import { writeFileSync } from "fs";
 import URL from "url-parse";
+
+import metascraper from "metascraper";
+import metascraperTitle from "metascraper-title";
+import metascraperDescription from "metascraper-description";
+import metascraperUrl from "metascraper-url";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,15 +38,19 @@ async function runAxe(html, url) {
   return results;
 }
 
-// SEO metadata
-async function runSEO(url) {
+// SEO using metascraper
+async function runSEO(url, html) {
   try {
-    const metadata = await metadataParser(url);
+    const scraper = metascraper([
+      metascraperTitle(),
+      metascraperDescription(),
+      metascraperUrl()
+    ]);
+    const meta = await scraper({ html, url });
     return {
-      title: metadata.general.title,
-      description: metadata.general.description,
-      canonical: metadata.general.canonical,
-      robots: metadata.general.robots
+      title: meta.title || "",
+      description: meta.description || "",
+      url: meta.url || url
     };
   } catch {
     return { error: "Failed to parse SEO metadata" };
@@ -84,7 +92,7 @@ async function crawlPages(rootUrl, maxPages = 10) {
       const html = await fetchHTML(url);
       const [accessibility, seo, security, performance] = await Promise.all([
         runAxe(html, url),
-        runSEO(url),
+        runSEO(url, html),
         runSecurity(url),
         runPSI(url)
       ]);
@@ -110,7 +118,7 @@ async function crawlPages(rootUrl, maxPages = 10) {
 }
 
 // Generate PDF report
-function generatePDF(auditData, gptSummary, outputPath = "audit_report.pdf") {
+function generatePDF(auditData, gptSummary, outputPath = "public/audit_report.pdf") {
   const doc = new PDFDocument();
   doc.pipe(writeFileSync(outputPath, ""));
   doc.text("Complete Website Audit Report", { align: "center", underline: true });
