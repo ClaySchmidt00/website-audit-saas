@@ -1,6 +1,6 @@
 {
-  "name": "complete-web-audit",
-  "version": "2.1.0",
+  "name": "website-audit-saas",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,7 +13,6 @@
     "openai": "^4.56.0",
     "axe-core": "^4.7.1",
     "jsdom": "^22.1.0",
-    "node-fetch": "^3.3.2",
     "pdfkit": "^0.13.0",
     "url-parse": "^1.5.10",
     "metascraper": "^5.15.0",
