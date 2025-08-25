@@ -1,38 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Website Audit SaaS</title>
-  <style>
-    body { font-family: Arial, sans-serif; max-width: 800px; margin: auto; padding: 2rem; }
-    input, button { padding: 0.5rem; font-size: 1rem; margin-top: 1rem; width: 100%; }
-    #result { margin-top: 2rem; white-space: pre-wrap; }
-  </style>
+<meta charset="UTF-8">
+<title>Complete Web Audit SaaS</title>
+<style>
+body { font-family: Arial, sans-serif; max-width: 900px; margin: auto; padding: 2rem; }
+input, button { padding: 0.5rem; font-size: 1rem; margin-top: 1rem; width: 100%; }
+#result { margin-top: 2rem; white-space: pre-wrap; }
+</style>
 </head>
 <body>
-  <h1>Website Audit</h1>
-  <p>Enter a website URL to audit accessibility and performance:</p>
-  <input id="url" type="text" placeholder="https://example.com" />
-  <button onclick="runAudit()">Run Audit</button>
-  <div id="result"></div>
+<h1>Complete Website Audit</h1>
+<p>Enter a website URL for full audit (Performance, Accessibility, SEO, Security):</p>
+<input id="url" type="text" placeholder="https://example.com" />
+<button onclick="runAudit()">Run Audit</button>
+<div id="result"></div>
 
-  <script>
-    async function runAudit() {
-      const url = document.getElementById("url").value;
-      document.getElementById("result").innerText = "⏳ Running audit... This may take 30-90 seconds on free tier.";
-      try {
-        const res = await fetch("/audit", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url })
-        });
-        const data = await res.json();
-        if (data.error) document.getElementById("result").innerText = "❌ Error: " + data.error;
-        else document.getElementById("result").innerText = "✅ GPT Summary:\n\n" + data.summary;
-      } catch (err) {
-        document.getElementById("result").innerText = "❌ Fetch failed: " + err;
-      }
-    }
-  </script>
+<script>
+async function runAudit() {
+  const url = document.getElementById("url").value;
+  document.getElementById("result").innerText = "⏳ Running full audit... This may take 30–60 seconds.";
+  try {
+    const res = await fetch("/audit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url })
+    });
+    const data = await res.json();
+    if (data.error) document.getElementById("result").innerText = "❌ Error: " + data.error;
+    else document.getElementById("result").innerText = "✅ GPT Summary:\n\n" + data.summary;
+  } catch (err) {
+    document.getElementById("result").innerText = "❌ Fetch failed: " + err;
+  }
+}
+</script>
 </body>
 </html>
