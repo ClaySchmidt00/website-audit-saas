@@ -2,41 +2,66 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Complete Website Audit</title>
+<title>Website Audit SaaS</title>
 <style>
-body { font-family: Arial, sans-serif; max-width: 900px; margin: auto; padding: 2rem; }
+body { font-family: Arial; max-width: 900px; margin: auto; padding: 2rem; }
 input, button { padding: 0.5rem; font-size: 1rem; margin-top: 1rem; width: 100%; }
-#result { margin-top: 2rem; white-space: pre-wrap; }
+#result, #pdfResult { margin-top: 2rem; white-space: pre-wrap; }
 </style>
 </head>
 <body>
-<h1>Complete Website Audit (Multi-Page + PDF)</h1>
-<p>Enter the root URL to audit the website:</p>
-<input id="url" type="text" placeholder="https://example.com" />
-<button onclick="runAudit()">Run Full Audit</button>
+<h1>Website Audit SaaS</h1>
+<p>Enter website URL:</p>
+<input id="url" type="text" placeholder="https://example.com">
+<button onclick="runAudit()">Run Audit (JSON)</button>
+<button onclick="generatePDF()">Generate GPT Summary + PDF</button>
+
 <div id="result"></div>
-<div id="download" style="margin-top:1rem;"></div>
+<div id="pdfResult"></div>
 
 <script>
+let lastSite = "";
+
 async function runAudit() {
   const url = document.getElementById("url").value;
-  document.getElementById("result").innerText = "⏳ Running full multi-page audit...";
-  document.getElementById("download").innerHTML = "";
+  if (!url) return alert("Enter a URL");
+  lastSite = url;
+  document.getElementById("result").innerText = "⏳ Running audit...";
+  document.getElementById("pdfResult").innerText = "";
   try {
     const res = await fetch("/audit", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url })
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({url})
     });
     const data = await res.json();
     if (data.error) {
-      document.getElementById("result").innerText = "❌ Error: " + data.error;
+      document.getElementById("result").innerText = "❌ " + data.error;
     } else {
-      document.getElementById("result").innerText = "✅ GPT Summary:\n\n" + data.summary;
-      document.getElementById("download").innerHTML = `<a href="${data.pdf}" target="_blank">📄 Download PDF Report</a>`;
+      document.getElementById("result").innerText = "✅ Audit complete. Pages crawled: " + data.report.pages.length;
     }
   } catch (err) {
     document.getElementById("result").innerText = "❌ Fetch failed: " + err;
+  }
+}
+
+async function generatePDF() {
+  if (!lastSite) return alert("Run an audit first");
+  document.getElementById("pdfResult").innerText = "⏳ Generating GPT summary and PDF...";
+  try {
+    const res = await fetch("/generate-pdf", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({site:lastSite})
+    });
+    const data = await res.json();
+    if (data.error) {
+      document.getElementById("pdfResult").innerText = "❌ " + data.error;
+    } else {
+      document.getElementById("pdfResult").innerHTML = `✅ PDF ready: <a href="${data.pdf}" target="_blank">Download PDF</a><br>GPT Summary:<br>${data.summary}`;
+    }
+  } catch (err) {
+    document.getElementById("pdfResult").innerText = "❌ Failed: " + err;
   }
 }
 </script>
