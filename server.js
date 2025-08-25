@@ -1,80 +1,103 @@
 import express from "express";
 import bodyParser from "body-parser";
-import puppeteer from "puppeteer";
+import axios from "axios";
 import OpenAI from "openai";
+import { JSDOM } from "jsdom";
+import axeCore from "axe-core";
+import metadataParser from "html-metadata-parser";
+import { getSecurityHeaders } from "securityheaders";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
 app.use(bodyParser.json());
 app.use(express.static("public"));
 
-// OpenAI setup
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Helper: fetch HTML
+async function fetchHTML(url) {
+  const response = await axios.get(url, { timeout: 60000 });
+  return response.data;
+}
 
-// Debug route to check environment variable
-app.get("/debug-env", (_req, res) => {
-  if (process.env.OPENAI_API_KEY) {
-    res.send("✅ OPENAI_API_KEY is set!");
-  } else {
-    res.send("❌ OPENAI_API_KEY is NOT set.");
+// Accessibility audit using axe-core + jsdom
+async function runAxe(html, url) {
+  const dom = new JSDOM(html, { url });
+  const { window } = dom;
+  const results = await new Promise((resolve) => {
+    axeCore.run(window.document, {}, (err, results) => resolve(results));
+  });
+  return results;
+}
+
+// SEO basic audit
+async function runSEO(html, url) {
+  const metadata = await metadataParser(url);
+  return {
+    title: metadata.general.title,
+    description: metadata.general.description,
+    canonical: metadata.general.canonical,
+    robots: metadata.general.robots
+  };
+}
+
+// Security audit
+async function runSecurity(url) {
+  try {
+    const headers = await getSecurityHeaders(url);
+    return headers;
+  } catch {
+    return { error: "Failed to fetch security headers" };
   }
-});
+}
 
-// Audit endpoint
+// Performance audit using PageSpeed Insights API
+async function runPSI(url) {
+  const apiKey = process.env.PSI_API_KEY || ""; // optional
+  const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(
+    url
+  )}&strategy=mobile${apiKey ? `&key=${apiKey}` : ""}`;
+  const res = await axios.get(apiUrl);
+  return res.data;
+}
+
+// Main audit endpoint
 app.post("/audit", async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: "Missing URL" });
 
   try {
-    // Launch Puppeteer with Render-safe flags
-    const browser = await puppeteer.launch({
-      headless: "new",
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-accelerated-2d-canvas",
-        "--no-first-run",
-        "--no-zygote",
-        "--single-process",
-        "--disable-gpu"
-      ]
-    });
-    const page = await browser.newPage();
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
+    // Fetch site HTML
+    const html = await fetchHTML(url);
 
-    // Run Lighthouse via Puppeteer Chromium
-    const { exec } = await import("node:child_process");
-    const lhr = await new Promise((resolve, reject) => {
-      exec(
-        `npx lighthouse ${url} --quiet --chrome-flags="--headless --no-sandbox --disable-gpu" --output=json --output-path=stdout`,
-        { maxBuffer: 1024 * 1024 * 10 },
-        (error, stdout) => {
-          if (error) reject(error);
-          else resolve(JSON.parse(stdout));
-        }
-      );
-    });
+    // Run audits
+    const [accessibility, seo, security, performance] = await Promise.all([
+      runAxe(html, url),
+      runSEO(html, url),
+      runSecurity(url),
+      runPSI(url)
+    ]);
 
-    await browser.close();
+    const fullReport = { url, performance, accessibility, seo, security };
 
-    // Ask GPT to summarize Lighthouse
+    // GPT summarization
     const gptSummary = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "You are an expert web auditor. Provide a concise, actionable summary." },
-        { role: "user", content: `Summarize this Lighthouse report for ${url}:\n${JSON.stringify(lhr, null, 2)}` }
+        {
+          role: "system",
+          content: "You are a web auditing expert. Summarize all metrics clearly with actionable recommendations."
+        },
+        { role: "user", content: `Full audit report for ${url}:\n${JSON.stringify(fullReport, null, 2)}` }
       ]
     });
 
-    res.json({ summary: gptSummary.choices[0].message.content, report: lhr });
+    res.json({ summary: gptSummary.choices[0].message.content, report: fullReport });
   } catch (err) {
-    console.error("❌ Error during audit:", err);
+    console.error("❌ Audit failed:", err);
     res.status(500).json({ error: "Audit failed", details: err.toString() });
   }
 });
 
-// Start server
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
