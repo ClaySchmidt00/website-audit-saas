@@ -3,8 +3,6 @@ import bodyParser from "body-parser";
 import axios from "axios";
 import OpenAI from "openai";
 import { JSDOM } from "jsdom";
-import axeCore from "axe-core";
-import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";
 import URL from "url-parse";
@@ -12,6 +10,18 @@ import metascraper from "metascraper";
 import metascraperTitle from "metascraper-title";
 import metascraperDescription from "metascraper-description";
 import metascraperUrl from "metascraper-url";
+import PDFDocument from "pdfkit";
+
+// --- Setup DOM globals for axe-core ---
+const { window } = new JSDOM("");
+global.window = window;
+global.document = window.document;
+global.Node = window.Node;
+global.Element = window.Element;
+global.HTMLElement = window.HTMLElement;
+
+// Import axe-core after globals
+import axeCore from "axe-core";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,6 +29,9 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 app.use(bodyParser.json());
 app.use(express.static("public"));
+
+// --- In-memory progress store ---
+const progressStore = {};
 
 // --- Helper functions ---
 
@@ -31,23 +44,17 @@ async function runAxe(html, url) {
   const dom = new JSDOM(html, { url });
   const { window } = dom;
 
-  // Set globals for axe-core
+  // Override globals per page for safety
   global.window = window;
   global.document = window.document;
-  global.Node = window.Node;
-  global.Element = window.Element;
-  global.HTMLElement = window.HTMLElement;
 
   const results = await new Promise((resolve) => {
     axeCore.run(window.document, {}, (err, results) => resolve(results));
   });
 
-  // Clean up globals
+  // Cleanup
   delete global.window;
   delete global.document;
-  delete global.Node;
-  delete global.Element;
-  delete global.HTMLElement;
 
   return results;
 }
@@ -93,16 +100,19 @@ async function runPSI(url) {
   return res.data;
 }
 
-// Crawl internal pages sequentially
+// --- Crawl internal pages sequentially ---
 async function crawlPagesSequential(rootUrl, maxPages = 3) {
   const visited = new Set();
   const queue = [rootUrl];
   const results = [];
+  progressStore[rootUrl] = { completed: 0, total: 0 };
 
   while (queue.length && visited.size < maxPages) {
     const url = queue.shift();
     if (visited.has(url)) continue;
     visited.add(url);
+
+    progressStore[rootUrl].total = visited.size + queue.length;
 
     try {
       const html = await fetchHTML(url);
@@ -114,8 +124,9 @@ async function crawlPagesSequential(rootUrl, maxPages = 3) {
       ]);
 
       results.push({ url, accessibility, seo, security, performance });
+      progressStore[rootUrl].completed = results.length;
 
-      // Collect internal links
+      // Enqueue internal links
       const dom = new JSDOM(html, { url });
       const anchors = [...dom.window.document.querySelectorAll("a[href]")];
       anchors.forEach(a => {
@@ -124,15 +135,17 @@ async function crawlPagesSequential(rootUrl, maxPages = 3) {
           queue.push(link.href);
         }
       });
+
     } catch (err) {
       console.error(`❌ Error processing ${url}:`, err.toString());
     }
   }
 
+  delete progressStore[rootUrl];
   return results;
 }
 
-// Save/load JSON
+// --- Save/load JSON ---
 function saveAuditJSON(site, data) {
   const tmpDir = path.join("tmp");
   if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
@@ -147,7 +160,7 @@ function loadAuditJSON(site) {
   return JSON.parse(fs.readFileSync(filePath));
 }
 
-// Generate PDF
+// --- Generate PDF ---
 function generatePDF(auditData, gptSummary, outputPath = "public/audit_report.pdf") {
   const doc = new PDFDocument();
   const stream = fs.createWriteStream(outputPath);
@@ -222,6 +235,13 @@ app.post("/generate-pdf", async (req, res) => {
     console.error("❌ PDF generation failed:", err);
     res.status(500).json({ error: "PDF generation failed", details: err.toString() });
   }
+});
+
+// Endpoint to track progress
+app.get("/progress", (req, res) => {
+  const { site } = req.query;
+  if (!site || !progressStore[site]) return res.json({ completed: 0, total: 0 });
+  res.json(progressStore[site]);
 });
 
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
