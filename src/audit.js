@@ -5,12 +5,15 @@ import metascraper from "metascraper";
 import metascraperTitle from "metascraper-title";
 import metascraperDescription from "metascraper-description";
 import metascraperUrl from "metascraper-url";
+import { pagespeedonline } from "@googleapis/pagespeedonline";
 
+// Fetch HTML
 export async function fetchHTML(url) {
   const res = await axios.get(url, { timeout: 60000 });
   return res.data;
 }
 
+// Accessibility using axe-core
 export async function runAxe(html, url) {
   const dom = new JSDOM(html, { url });
   global.window = dom.window;
@@ -32,6 +35,7 @@ export async function runAxe(html, url) {
   return results;
 }
 
+// SEO metadata
 export async function runSEO(url, html) {
   try {
     const scraper = metascraper([
@@ -45,6 +49,26 @@ export async function runSEO(url, html) {
   }
 }
 
+// PageSpeed Insights
+export async function runPSI(url) {
+  try {
+    const client = pagespeedonline({ version: "v5" });
+    const res = await client.pagespeedapi.runpagespeed({ url });
+    const lhr = res.data.lighthouseResult;
+    return {
+      performance: lhr.categories.performance.score * 100,
+      accessibility: lhr.categories.accessibility.score * 100,
+      seo: lhr.categories.seo.score * 100,
+      bestPractices: lhr.categories["best-practices"].score * 100,
+      pwa: lhr.categories.pwa.score * 100,
+    };
+  } catch (err) {
+    console.error("PSI failed for", url, err.toString());
+    return { error: "PSI failed" };
+  }
+}
+
+// Crawl pages sequentially
 export async function crawlPages(rootUrl, maxPages = 3) {
   const visited = new Set();
   const queue = [rootUrl];
@@ -57,11 +81,13 @@ export async function crawlPages(rootUrl, maxPages = 3) {
 
     try {
       const html = await fetchHTML(url);
-      const [accessibility, seo] = await Promise.all([
+      const [accessibility, seo, psi] = await Promise.all([
         runAxe(html, url),
         runSEO(url, html),
+        runPSI(url),
       ]);
-      results.push({ url, accessibility, seo });
+
+      results.push({ url, accessibility, seo, psi });
 
       const dom = new JSDOM(html, { url });
       const anchors = [...dom.window.document.querySelectorAll("a[href]")];
