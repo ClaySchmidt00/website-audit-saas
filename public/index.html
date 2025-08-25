@@ -4,18 +4,21 @@
 <meta charset="UTF-8">
 <title>Website Audit SaaS</title>
 <style>
-body { font-family: Arial; max-width: 900px; margin: auto; padding: 2rem; }
+body { font-family: Arial, sans-serif; max-width: 900px; margin: auto; padding: 2rem; }
 input, button { padding: 0.5rem; font-size: 1rem; margin-top: 1rem; width: 100%; }
-#result, #pdfResult { margin-top: 2rem; white-space: pre-wrap; }
+#progress, #result, #pdfResult { margin-top: 1rem; white-space: pre-wrap; }
+#pdfResult { display: none; }
 </style>
 </head>
 <body>
 <h1>Website Audit SaaS</h1>
+
 <p>Enter website URL:</p>
 <input id="url" type="text" placeholder="https://example.com">
 <button onclick="runAudit()">Run Audit (JSON)</button>
 <button onclick="generatePDF()">Generate GPT Summary + PDF</button>
 
+<div id="progress">Progress: 0 / 0 pages</div>
 <div id="result"></div>
 <div id="pdfResult"></div>
 
@@ -26,44 +29,36 @@ async function runAudit() {
   const url = document.getElementById("url").value;
   if (!url) return alert("Enter a URL");
   lastSite = url;
-  document.getElementById("result").innerText = "⏳ Running audit...";
-  document.getElementById("pdfResult").innerText = "";
+
+  document.getElementById("result").innerText = "";
+  document.getElementById("pdfResult").style.display = "none";
+  document.getElementById("progress").innerText = "Progress: 0 / 0 pages";
+
   try {
     const res = await fetch("/audit", {
       method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({url})
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url })
     });
     const data = await res.json();
+
     if (data.error) {
       document.getElementById("result").innerText = "❌ " + data.error;
-    } else {
-      document.getElementById("result").innerText = "✅ Audit complete. Pages crawled: " + data.report.pages.length;
+      return;
     }
-  } catch (err) {
-    document.getElementById("result").innerText = "❌ Fetch failed: " + err;
-  }
-}
 
-async function generatePDF() {
-  if (!lastSite) return alert("Run an audit first");
-  document.getElementById("pdfResult").innerText = "⏳ Generating GPT summary and PDF...";
-  try {
-    const res = await fetch("/generate-pdf", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({site:lastSite})
-    });
-    const data = await res.json();
-    if (data.error) {
-      document.getElementById("pdfResult").innerText = "❌ " + data.error;
-    } else {
-      document.getElementById("pdfResult").innerHTML = `✅ PDF ready: <a href="${data.pdf}" target="_blank">Download PDF</a><br>GPT Summary:<br>${data.summary}`;
-    }
+    // Poll progress every second
+    const interval = setInterval(async () => {
+      const progressRes = await fetch(`/progress?site=${encodeURIComponent(lastSite)}`);
+      const progressData = await progressRes.json();
+      document.getElementById("progress").innerText = `Progress: ${progressData.completed} / ${progressData.total} pages`;
+
+      if (progressData.completed >= progressData.total && progressData.total > 0) {
+        clearInterval(interval);
+        document.getElementById("result").innerText = `✅ Audit complete. Pages crawled: ${progressData.total}`;
+        document.getElementById("pdfResult").style.display = "block";
+      }
+    }, 1000);
+
   } catch (err) {
-    document.getElementById("pdfResult").innerText = "❌ Failed: " + err;
-  }
-}
-</script>
-</body>
-</html>
+    document.getElementById("result").innerText = "❌ Audit request fail
