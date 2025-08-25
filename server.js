@@ -4,7 +4,6 @@ import axios from "axios";
 import OpenAI from "openai";
 import { JSDOM } from "jsdom";
 import axeCore from "axe-core";
-import { getSecurityHeaders } from "securityheaders";
 import PDFDocument from "pdfkit";
 import { writeFileSync } from "fs";
 import URL from "url-parse";
