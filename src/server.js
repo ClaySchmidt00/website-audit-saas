@@ -1,48 +1,44 @@
+// src/server.js
 import express from "express";
+import cors from "cors";
+import bodyParser from "body-parser";
 import path from "path";
 import { fileURLToPath } from "url";
-import { fetchHTML, runAxe, runSEO, runPSI } from "./audit.js";
-
-const app = express();
-const PORT = process.env.PORT || 10000;
+import { runAudit } from "./audit.js"; // ✅ make sure audit.js export is used
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-app.use(express.static(path.join(__dirname, "../public")));
-app.use(express.json());
+const app = express();
+const PORT = process.env.PORT || 10000;
 
-// SSE stream for live audit
-app.get("/audit-stream", async (req, res) => {
-  const url = req.query.url;
-  if (!url) return res.status(400).end();
+app.use(cors());
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, "public")));
 
-  res.set({
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache",
-    Connection: "keep-alive",
-  });
+// API route to run an audit
+app.post("/api/audit", async (req, res) => {
+  const { url } = req.body;
 
-  const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+  if (!url) {
+    return res.status(400).json({ error: "Missing URL parameter" });
+  }
 
   try {
-    const html = await fetchHTML(url);
-
-    const accessibility = await runAxe(html, url);
-    send({ status: "accessibility", data: accessibility });
-
-    const seo = await runSEO(url, html);
-    send({ status: "seo", data: seo });
-
-    const psi = await runPSI(url);
-    send({ status: "psi", data: psi });
-
-    send({ status: "done" });
-    res.end();
-  } catch (err) {
-    send({ status: "error", error: err.toString() });
-    res.end();
+    console.log(`Running audit for: ${url}`);
+    const results = await runAudit(url); // ✅ uses fixed audit.js
+    res.json(results);
+  } catch (error) {
+    console.error("Audit failed:", error);
+    res.status(500).json({ error: error.message || "Audit failed" });
   }
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Fallback to frontend
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+});
