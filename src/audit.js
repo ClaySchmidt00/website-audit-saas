@@ -69,4 +69,12 @@ export async function runPSI(url) {
     return {
       performance: lhr.categories.performance.score * 100,
       accessibility: lhr.categories.accessibility.score * 100,
-      seo: lhr.c
+      seo: lhr.categories.seo.score * 100,
+      bestPractices: lhr.categories["best-practices"].score * 100,
+      pwa: lhr.categories.pwa.score * 100,
+    };
+  } catch (err) {
+    console.error("PSI failed for", url, err.toString());
+    return { error: "PSI failed" };
+  }
+}
