@@ -1,97 +1,36 @@
-import axios from "axios";
-import { JSDOM } from "jsdom";
-import axeCore from "axe-core";
-import metascraper from "metascraper";
-import metascraperTitle from "metascraper-title";
-import metascraperDescription from "metascraper-description";
-import metascraperUrl from "metascraper-url";
 import fetch from "node-fetch";
-import { pagespeedonline } from "@googleapis/pagespeedonline";
+import dotenv from "dotenv";
 
-// ---------------------------
-// Fetch HTML
-// ---------------------------
-export async function fetchHTML(url) {
-  const res = await axios.get(url, { timeout: 60000 });
-  if (!res.data || !res.data.trim()) {
-    throw new Error(`Empty HTML returned from ${url}`);
-  }
-  return res.data;
-}
+dotenv.config();
 
-// ---------------------------
-// Accessibility Audit (axe-core + JSDOM)
-// ---------------------------
-export async function runAxe(html, url) {
-  if (!html || !html.trim()) throw new Error("Empty HTML cannot be audited");
+const API_KEY = process.env.PSI_API_KEY;
 
-  const dom = new JSDOM(html, { url });
-
-  // Set globals for axe-core
-  const { window } = dom;
-  global.window = window;
-  global.document = window.document;
-  global.Node = window.Node;
-  global.Element = window.Element;
-  global.HTMLElement = window.HTMLElement;
-
+export async function runAudit(url) {
   try {
-    // Run axe on the explicit document
-    const results = await new Promise((resolve, reject) => {
-      axeCore.run(window.document, {}, (err, res) => {
-        if (err) reject(err);
-        else resolve(res);
-      });
-    });
-    return results;
-  } finally {
-    // Clean up globals
-    delete global.window;
-    delete global.document;
-    delete global.Node;
-    delete global.Element;
-    delete global.HTMLElement;
-  }
-}
+    const endpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(
+      url
+    )}&key=${API_KEY}&strategy=mobile`;
 
-// ---------------------------
-// SEO Metadata
-// ---------------------------
-export async function runSEO(url, html) {
-  try {
-    const scraper = metascraper([
-      metascraperTitle(),
-      metascraperDescription(),
-      metascraperUrl(),
-    ]);
-    return await scraper({ html, url });
-  } catch (err) {
-    return { error: "Failed to parse SEO metadata" };
-  }
-}
+    const response = await fetch(endpoint);
+    if (!response.ok) {
+      throw new Error(`PSI API request failed: ${response.status}`);
+    }
 
-// ---------------------------
-// PageSpeed Insights
-// ---------------------------
-export async function runPSI(url) {
-  try {
-    const client = pagespeedonline({ version: "v5", auth: process.env.GOOGLE_API_KEY });
-    const res = await client.pagespeedapi.runpagespeed({
-      url,
-      strategy: "mobile",
-      fetch: fetch,
-    });
+    const data = await response.json();
 
-    const lhr = res.data.lighthouseResult;
+    // Extract useful fields
+    const lighthouseResult = data.lighthouseResult || {};
+    const categories = lighthouseResult.categories || {};
+
     return {
-      performance: lhr.categories.performance.score * 100,
-      accessibility: lhr.categories.accessibility.score * 100,
-      seo: lhr.categories.seo.score * 100,
-      bestPractices: lhr.categories["best-practices"].score * 100,
-      pwa: lhr.categories.pwa.score * 100,
+      performance: categories.performance?.score ?? null,
+      accessibility: categories.accessibility?.score ?? null,
+      bestPractices: categories["best-practices"]?.score ?? null,
+      seo: categories.seo?.score ?? null,
+      url: data.id || url
     };
   } catch (err) {
-    console.error("PSI failed for", url, err.toString());
-    return { error: "PSI failed" };
+    console.error("Audit error:", err.message);
+    throw err;
   }
 }
