@@ -1,16 +1,17 @@
 {
-  "name": "web-audit-saas",
+  "name": "website-audit-saas",
   "version": "1.0.0",
-  "description": "Website accessibility and performance auditor with GPT summarization",
-  "main": "server.js",
+  "private": true,
+  "type": "module",
   "scripts": {
     "start": "node server.js",
     "postinstall": "puppeteer install --with-deps"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "lighthouse": "^11.7.0",
-    "openai": "^4.0.0",
-    "puppeteer": "^22.6.1"
+    "puppeteer": "^22.6.1",
+    "lighthouse": "^12.2.0",
+    "openai": "^4.56.0",
+    "body-parser": "^1.20.2"
   }
 }
