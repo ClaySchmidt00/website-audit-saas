@@ -24,26 +24,31 @@ export async function runAxe(html, url) {
   global.Element = dom.window.Element;
   global.HTMLElement = dom.window.HTMLElement;
 
-  const results = await new Promise((resolve, reject) => {
-    axeCore.run(dom.window.document, {}, (err, results) => {
-      if (err) reject(err);
-      else resolve(results);
+  try {
+    const results = await new Promise((resolve, reject) => {
+      axeCore.run(dom.window.document, {}, (err, results) => {
+        if (err) reject(err);
+        else resolve(results);
+      });
     });
-  });
-
-  delete global.window;
-  delete global.document;
-  delete global.Node;
-  delete global.Element;
-  delete global.HTMLElement;
-
-  return results;
+    return results;
+  } finally {
+    delete global.window;
+    delete global.document;
+    delete global.Node;
+    delete global.Element;
+    delete global.HTMLElement;
+  }
 }
 
 // SEO metadata
 export async function runSEO(url, html) {
   try {
-    const scraper = metascraper([metascraperTitle(), metascraperDescription(), metascraperUrl()]);
+    const scraper = metascraper([
+      metascraperTitle(),
+      metascraperDescription(),
+      metascraperUrl(),
+    ]);
     return await scraper({ html, url });
   } catch {
     return { error: "Failed to parse SEO metadata" };
@@ -69,7 +74,4 @@ export async function runPSI(url) {
       pwa: lhr.categories.pwa.score * 100,
     };
   } catch (err) {
-    console.error("PSI failed for", url, err.toString());
-    return { error: "PSI failed" };
-  }
-}
+    console.error("PSI failed for"
