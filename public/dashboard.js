@@ -47,8 +47,14 @@ function renderDashboard(pages) {
       <p class="issue-high">High: ${highCount}</p>
       <p class="issue-medium">Medium: ${mediumCount}</p>
       <p class="issue-low">Low: ${lowCount}</p>
-    `;
 
+      <h3>PageSpeed Insights:</h3>
+      <p>Performance: ${page.psi.performance || "N/A"}%</p>
+      <p>Accessibility: ${page.psi.accessibility || "N/A"}%</p>
+      <p>SEO: ${page.psi.seo || "N/A"}%</p>
+      <p>Best Practices: ${page.psi.bestPractices || "N/A"}%</p>
+      <p>PWA: ${page.psi.pwa || "N/A"}%</p>
+    `;
     container.appendChild(card);
   });
 }
