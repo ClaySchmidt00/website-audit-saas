@@ -2,6 +2,7 @@
   "name": "website-audit-saas",
   "version": "1.0.0",
   "type": "module",
+  "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js"
   },
