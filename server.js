@@ -5,7 +5,7 @@ import OpenAI from "openai";
 import { JSDOM } from "jsdom";
 import axeCore from "axe-core";
 import PDFDocument from "pdfkit";
-import { writeFileSync } from "fs";
+import { writeFileSync, readFileSync, existsSync } from "fs";
 import URL from "url-parse";
 
 import metascraper from "metascraper";
@@ -15,7 +15,6 @@ import metascraperUrl from "metascraper-url";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 app.use(bodyParser.json());
@@ -56,7 +55,7 @@ async function runSEO(url, html) {
   }
 }
 
-// Security headers
+// Security headers using axios head
 async function runSecurity(url) {
   try {
     const res = await axios.head(url, { timeout: 10000 });
@@ -66,11 +65,10 @@ async function runSecurity(url) {
       'strict-transport-security': res.headers['strict-transport-security'] || null,
       'x-content-type-options': res.headers['x-content-type-options'] || null
     };
-  } catch (err) {
+  } catch {
     return { error: "Failed to fetch security headers" };
   }
 }
-
 
 // PageSpeed Insights API
 async function runPSI(url) {
@@ -82,8 +80,8 @@ async function runPSI(url) {
   return res.data;
 }
 
-// Crawl internal pages
-async function crawlPages(rootUrl, maxPages = 10) {
+// Crawl internal pages sequentially
+async function crawlPagesSequential(rootUrl, maxPages = 3) {
   const visited = new Set();
   const queue = [rootUrl];
   const results = [];
@@ -104,7 +102,7 @@ async function crawlPages(rootUrl, maxPages = 10) {
 
       results.push({ url, accessibility, seo, security, performance });
 
-      // Find internal links
+      // Collect internal links for future crawl
       const dom = new JSDOM(html, { url });
       const anchors = [...dom.window.document.querySelectorAll("a[href]")];
       anchors.forEach(a => {
@@ -115,72 +113,12 @@ async function crawlPages(rootUrl, maxPages = 10) {
       });
 
     } catch (err) {
-      console.error(`❌ Error crawling ${url}:`, err.toString());
+      console.error(`❌ Error processing ${url}:`, err.toString());
     }
   }
 
   return results;
 }
 
-// Generate PDF report
-function generatePDF(auditData, gptSummary, outputPath = "public/audit_report.pdf") {
-  const doc = new PDFDocument();
-  doc.pipe(writeFileSync(outputPath, ""));
-  doc.text("Complete Website Audit Report", { align: "center", underline: true });
-  doc.moveDown();
-  doc.text("GPT Executive Summary:", { bold: true });
-  doc.text(gptSummary);
-  doc.moveDown();
-
-  auditData.forEach(page => {
-    doc.addPage();
-    doc.text(`Page: ${page.url}`, { underline: true });
-    doc.text("SEO:", { bold: true });
-    doc.text(JSON.stringify(page.seo, null, 2));
-    doc.moveDown();
-    doc.text("Accessibility Issues:", { bold: true });
-    doc.text(JSON.stringify(page.accessibility, null, 2));
-    doc.moveDown();
-    doc.text("Security Headers:", { bold: true });
-    doc.text(JSON.stringify(page.security, null, 2));
-    doc.moveDown();
-    doc.text("Performance:", { bold: true });
-    doc.text(JSON.stringify(page.performance, null, 2));
-  });
-
-  doc.end();
-}
-
-// Audit endpoint
-app.post("/audit", async (req, res) => {
-  const { url } = req.body;
-  if (!url) return res.status(400).json({ error: "Missing URL" });
-
-  try {
-    const pages = await crawlPages(url, 10); // max 10 pages
-    const fullReport = { site: url, pages };
-
-    const gptSummaryResp = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a web auditing expert. Provide clear actionable insights from this report."
-        },
-        { role: "user", content: JSON.stringify(fullReport, null, 2) }
-      ]
-    });
-
-    const gptSummary = gptSummaryResp.choices[0].message.content;
-
-    generatePDF(pages, gptSummary, "public/audit_report.pdf");
-
-    res.json({ summary: gptSummary, report: fullReport, pdf: "/audit_report.pdf" });
-
-  } catch (err) {
-    console.error("❌ Full audit failed:", err);
-    res.status(500).json({ error: "Full audit failed", details: err.toString() });
-  }
-});
-
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+// Save audit JSON temporarily
+function saveAuditJ
