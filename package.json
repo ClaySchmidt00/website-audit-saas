@@ -1,25 +1,16 @@
 {
-  "name": "website-audit-saas",
+  "name": "web-audit-saas",
   "version": "1.0.0",
-  "private": true,
-  "type": "module",
+  "description": "Website accessibility and performance auditor with GPT summarization",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "render-build": "echo 'no build step'"
-  },
-  "engines": {
-    "node": ">=18"
+    "postinstall": "puppeteer install --with-deps"
   },
   "dependencies": {
-    "@axe-core/puppeteer": "^4.7.4",
-    "axe-core": "^4.10.0",
-    "chrome-launcher": "^1.1.0",
-    "express": "^4.19.2",
-    "fs-extra": "^11.2.0",
-    "lighthouse": "^12.2.0",
-    "marked": "^12.0.2",
-    "openai": "^4.56.0",
-    "puppeteer": "^22.15.0"
+    "express": "^4.18.2",
+    "lighthouse": "^11.7.0",
+    "openai": "^4.0.0",
+    "puppeteer": "^22.6.1"
   }
 }
